@@ -1,7 +1,4 @@
 import random
-from importlib.util import source_hash
-from timeit import default_timer
-
 
 class Forest:
     def __init__(self, dimensions: int) -> None:
@@ -11,6 +8,7 @@ class Forest:
         if dimensions <= 0 or dimensions > 20:
             raise ValueError('Forest dimension must be between 1 and 20.')
 
+        # TODO: move the icons & ticker to a more appropriate place
         self._tick = 0
         self._dimensions = dimensions
         self._empty = '🟫'
@@ -59,7 +57,7 @@ class Forest:
                 new_j = j + nj
                 if new_i < 0 or new_j < 0 or new_i >= self.dimensions or new_j >= self.dimensions:
                     continue
-                    
+
                 #if type(self.matrix[new_i][new_j]).__name__ == target_type:
                 if isinstance(self.matrix[new_i][new_j], target_type):
                     return path + [(new_i, new_j)]
