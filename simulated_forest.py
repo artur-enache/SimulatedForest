@@ -16,11 +16,6 @@ class Forest:
         self._rabbit = '🐇'
         self._wolf = '🐺'
 
-        # The matrix will store one ref to an instance of grass / rabbit / wolf, per cell
-        self._matrix = []
-        for _ in range(self._dimensions):
-            self._matrix.append([ None for _ in range(self._dimensions) ])
-
     @property
     def matrix(self) -> list:
         return self._matrix
@@ -37,16 +32,25 @@ class Forest:
     def tick(self, new_tick: int) -> None:
         self._tick = new_tick
 
-    # TEST METHOD
-    def set_test_element(self, element, position):
-        i, j = position
+    def update_position(self, element: object, position: list[tuple[[int]]]) -> None:
+        i, j = position[0]
         self.matrix[i][j] = element
 
-    def find_path(self, start_position: tuple[int], target_type: str = '') -> list[tuple[int]]:
+    def reset_forest(self) -> None:
+        self._matrix = []
+        for _ in range(self.dimensions):
+            self._matrix.append([ None for _ in range(self.dimensions) ])
+
+    def find_path(self, start_position: tuple[int] = None, target_type: str = None) -> list[tuple[int]]:
         # N NE E SE S SW W NW
         directions = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
 
-        start_i, start_j = start_position
+        if start_position:
+            start_i, start_j = start_position
+        else:
+            start_i = random.randint(0, self.dimensions - 1)
+            start_j = random.randint(0, self.dimensions - 1)
+
         visited = []
         queue = [(start_i, start_j, [(start_i, start_j)])]
 
@@ -61,9 +65,6 @@ class Forest:
                     continue
 
                 # Allows the method to find nearest empty cell, used for spawning instances
-                if not self.matrix[new_i][new_j]:
-                    return [(new_i, new_j)]
-
                 if target_type:
                     if isinstance(self.matrix[new_i][new_j], target_type):
                         return path + [(new_i, new_j)]
@@ -72,18 +73,46 @@ class Forest:
                             visited.append((new_i, new_j))
                             queue.append((new_i, new_j, path + [(new_i, new_j)]))
                 else:
-                    continue
+                    if not self.matrix[new_i][new_j]:
+                        return [(new_i, new_j)]
 
         return -1
 
-    def update_matrix(self, instances: list[LivingBeing]) -> tuple[int]:
-        pass
+    def update_forest(self, instances: list[object]) -> None:
+        if not instances:
+            raise ValueError('Cannot update an empty forest.')
 
-test = Forest(5)
-test.set_test_element(1, (0, 1))
-test.set_test_element(1, (1, 0))
-print('\n'.join(str(item) for item in test.matrix))
-print(test.find_path((0, 0), ''))
+        queue = []
+        for entity in instances:
+            queue.append((entity, entity.position))
+
+        self.reset_forest()
+        while queue:
+            entity, new_position = queue.pop(0)
+            self.update_position(entity, new_position)
+            entity.position = new_position
+
+class TestClass:
+    def __init__(self, position):
+        self._position = position
+
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, new_position):
+        self._position = new_position
+
+test_forest = Forest(5)
+test_forest.reset_forest()
+test_obj1 = TestClass(test_forest.find_path())
+test_obj2 = TestClass(test_forest.find_path())
+test_forest.update_forest([test_obj1, test_obj2])
+
+print('\n'.join(str(item) for item in test_forest.matrix))
+print(test_forest.find_path((0, 0), TestClass))
+print(test_forest.find_path((0, 0), None))
 
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
