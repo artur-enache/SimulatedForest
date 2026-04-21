@@ -11,10 +11,11 @@ class Forest:
         # TODO: move the icons & ticker to a more appropriate place
         self._tick = 0
         self._dimensions = dimensions
-        self._empty = '🟫'
+        self._empty = '  '
         self._grass = '🌱'
         self._rabbit = '🐇'
         self._wolf = '🐺'
+        self._test = '🪰'
 
     @property
     def matrix(self) -> list:
@@ -92,6 +93,18 @@ class Forest:
             self.update_position(entity, new_position)
             entity.position = new_position
 
+    def draw_matrix(self):
+        output_matrix = []
+        for _ in range(self.dimensions):
+            output_matrix.append([ None for _ in range(self.dimensions) ])
+
+        for i in range(self.dimensions):
+            for j in range(self.dimensions):
+                output_matrix[i][j] = self._empty if not self.matrix[i][j] else self._test
+
+        print('\n'.join(str(item) for item in output_matrix))
+
+
 class TestClass:
     def __init__(self, position):
         self._position = position
@@ -110,7 +123,7 @@ test_obj1 = TestClass(test_forest.find_path())
 test_obj2 = TestClass(test_forest.find_path())
 test_forest.update_forest([test_obj1, test_obj2])
 
-print('\n'.join(str(item) for item in test_forest.matrix))
+test_forest.draw_matrix()
 print(test_forest.find_path((0, 0), TestClass))
 print(test_forest.find_path((0, 0), None))
 
