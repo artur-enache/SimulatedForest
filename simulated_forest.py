@@ -37,13 +37,15 @@ class Forest:
     def tick(self, new_tick: int) -> None:
         self._tick = new_tick
 
+    # TEST METHOD
     def set_test_element(self, element, position):
         i, j = position
         self.matrix[i][j] = element
 
-    def find_path(self, start_position: tuple[int], target_type: str = '') -> list:
+    def find_path(self, start_position: tuple[int], target_type: str = '') -> list[tuple[int]]:
         # N NE E SE S SW W NW
         directions = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
+
         start_i, start_j = start_position
         visited = []
         queue = [(start_i, start_j, [(start_i, start_j)])]
@@ -58,19 +60,32 @@ class Forest:
                 if new_i < 0 or new_j < 0 or new_i >= self.dimensions or new_j >= self.dimensions:
                     continue
 
-                #if type(self.matrix[new_i][new_j]).__name__ == target_type:
-                if isinstance(self.matrix[new_i][new_j], target_type):
-                    return path + [(new_i, new_j)]
+                # Allows the method to find nearest empty cell, used for spawning instances
+                if not self.matrix[new_i][new_j]:
+                    return [(new_i, new_j)]
+
+                if target_type:
+                    if isinstance(self.matrix[new_i][new_j], target_type):
+                        return path + [(new_i, new_j)]
+                    else:
+                        if (new_i, new_j) not in visited:
+                            visited.append((new_i, new_j))
+                            queue.append((new_i, new_j, path + [(new_i, new_j)]))
                 else:
-                    if (new_i, new_j) not in visited:
-                        visited.append((new_i, new_j))
-                        queue.append((new_i, new_j, path + [(new_i, new_j)]))
+                    continue
 
         return -1
 
-test = Forest(5)
+    def update_matrix(self, instances: list[LivingBeing]) -> tuple[int]:
+        pass
 
-# Bug: path is [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]; Why?
-test.set_test_element(1, (3, 1))
-print(test.find_path((0, 0), int))
+test = Forest(5)
+test.set_test_element(1, (0, 1))
+test.set_test_element(1, (1, 0))
 print('\n'.join(str(item) for item in test.matrix))
+print(test.find_path((0, 0), ''))
+
+
+# Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
+# returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]
+# It looks like the algorithm prefers diagonal paths, more specifically the SE direction
