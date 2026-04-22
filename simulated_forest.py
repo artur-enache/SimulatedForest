@@ -1,4 +1,4 @@
-import random
+import random, time
 
 class Forest:
     def __init__(self, dimensions: int) -> None:
@@ -11,11 +11,7 @@ class Forest:
         # TODO: move the icons & ticker to a more appropriate place
         self._tick = 0
         self._dimensions = dimensions
-        self._empty = '  '
-        self._grass = '🌱'
-        self._rabbit = '🐇'
-        self._wolf = '🐺'
-        self._test = '🪰'
+        self._reserved = 'R'
 
     @property
     def matrix(self) -> list:
@@ -47,7 +43,7 @@ class Forest:
         directions = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
 
         if start_position:
-            start_i, start_j = start_position
+            start_i, start_j = start_position[0]
         else:
             start_i = random.randint(0, self.dimensions - 1)
             start_j = random.randint(0, self.dimensions - 1)
@@ -65,7 +61,6 @@ class Forest:
                 if new_i < 0 or new_j < 0 or new_i >= self.dimensions or new_j >= self.dimensions:
                     continue
 
-                # Allows the method to find nearest empty cell, used for spawning instances
                 if target_type:
                     if isinstance(self.matrix[new_i][new_j], target_type):
                         return path + [(new_i, new_j)]
@@ -73,8 +68,11 @@ class Forest:
                         if (new_i, new_j) not in visited:
                             visited.append((new_i, new_j))
                             queue.append((new_i, new_j, path + [(new_i, new_j)]))
+                # Allows the method to find nearest empty cell, used for spawning instances
                 else:
                     if not self.matrix[new_i][new_j]:
+                        # Entities that are about to be spawned, are not aware of each other's positions
+                        self.matrix[new_i][new_j] = self._reserved
                         return [(new_i, new_j)]
 
         return -1
@@ -94,13 +92,30 @@ class Forest:
             entity.position = new_position
 
     def draw_matrix(self):
+        self._empty = '  '
+        self._grass = '🌱'
+        self._rabbit = '🐇'
+        self._wolf = '🐺'
+        self._test = '🪰'
+
+        instance_icons = {
+            'Empty': '  ',
+            'Grass': '🌿',
+            'Rabbit': '🐰',
+            'Wolf': '🐯'
+        }
+
         output_matrix = []
         for _ in range(self.dimensions):
             output_matrix.append([ None for _ in range(self.dimensions) ])
 
         for i in range(self.dimensions):
             for j in range(self.dimensions):
-                output_matrix[i][j] = self._empty if not self.matrix[i][j] else self._test
+                if not self.matrix[i][j]:
+                    output_matrix[i][j] = self._empty
+                else:
+                    match_icon = type(self.matrix[i][j]).__name__
+                    output_matrix[i][j] = instance_icons[match_icon]
 
         print('\n'.join(str(item) for item in output_matrix))
 
@@ -117,17 +132,94 @@ class TestClass:
     def position(self, new_position):
         self._position = new_position
 
-test_forest = Forest(5)
+class LivingBeing:
+    def __init__(self, position):
+        self._position = position
+
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, new_position):
+        self._position = new_position
+
+    def can_reproduce(self, forest_instance: Forest):
+        pass
+
+class Grass(LivingBeing):
+    instance_count = 0
+    parents_required = 3
+
+    def __init__(self, position):
+        Grass.instance_count += 1
+        super().__init__(position)
+
+class Rabbit(LivingBeing):
+    instance_count = 0
+    parents_required = 3
+    max_hunger = 100
+    hunger_threshold = 50
+    hunger_attrition = 5
+    max_health = 100
+    health_attrition = 10
+
+    def __init__(self, position):
+        Rabbit.instance_count += 1
+        super().__init__(position)
+        self._current_hunger = Rabbit.max_hunger
+        self._current_health = Rabbit.max_health
+
+    @property
+    def current_hunger(self):
+        return self._current_hunger
+
+    @property
+    def current_health(self):
+        return self._current_health
+
+class Wolf(LivingBeing):
+    instance_count = 0
+    parents_required = 2
+    max_hunger = 150
+    hunger_threshold = 50
+    hunger_attrition = 5
+    max_health = 100
+    health_attrition = 5
+
+    def __init__(self, position):
+        Wolf.instance_count += 1
+        super().__init__(position)
+        self._current_hunger = Wolf.max_hunger
+        self._current_health = Wolf.max_health
+
+test_forest = Forest(6)
 test_forest.reset_forest()
-test_obj1 = TestClass(test_forest.find_path())
-test_obj2 = TestClass(test_forest.find_path())
-test_forest.update_forest([test_obj1, test_obj2])
+grass_obj1 = Grass(test_forest.find_path())
+rabbit_obj1 = Rabbit(test_forest.find_path())
+rabbit_obj2 = Rabbit(test_forest.find_path())
+print(Rabbit.instance_count)
+print(Grass.instance_count)
+wolf_obj1 = Wolf(test_forest.find_path())
+print(Wolf.instance_count)
+#print(rabbit_obj1.position)
+test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
+path_to_grass = test_forest.find_path(rabbit_obj1.position, Grass)
+print(path_to_grass)
+current_pos = path_to_grass.pop(0)
 
+while path_to_grass:
+    rabbit_obj1.position = [path_to_grass.pop(0)]
+    test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
+    test_forest.draw_matrix()
+    print('\n')
+    time.sleep(2.5)
+
+rabbit_obj1.position = [(0, 0)]
+test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
 test_forest.draw_matrix()
-print(test_forest.find_path((0, 0), TestClass))
-print(test_forest.find_path((0, 0), None))
-
+print(grass_obj1.position)
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
 # returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]
-# It looks like the algorithm prefers diagonal paths, more specifically the SE direction
+# It looks like the algorithm prefers diagonal paths
