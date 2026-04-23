@@ -64,7 +64,7 @@ class Forest:
                 if target_type:
                     if isinstance(self.matrix[new_i][new_j], target_type):
                         return path + [(new_i, new_j)]
-                    else:
+                    elif not self.matrix[new_i][new_j]:
                         if (new_i, new_j) not in visited:
                             visited.append((new_i, new_j))
                             queue.append((new_i, new_j, path + [(new_i, new_j)]))
@@ -83,13 +83,20 @@ class Forest:
 
         queue = []
         for entity in instances:
-            queue.append((entity, entity.position))
+            if entity.position:
+                queue.append((entity, entity.position))
+            else:
+                pass
 
         self.reset_forest()
         while queue:
             entity, new_position = queue.pop(0)
             self.update_position(entity, new_position)
             entity.position = new_position
+
+    def is_empty(self, position) -> bool:
+        i, j = position[0]
+        return True if not self.matrix[i][j] else False
 
     def draw_matrix(self):
         self._empty = '  '
@@ -119,18 +126,8 @@ class Forest:
 
         print('\n'.join(str(item) for item in output_matrix))
 
-
-class TestClass:
-    def __init__(self, position):
-        self._position = position
-
-    @property
-    def position(self):
-        return self._position
-
-    @position.setter
-    def position(self, new_position):
-        self._position = new_position
+    def draw_debug_matrix(self):
+        print('\n'.join(str(item) for item in self.matrix))
 
 class LivingBeing:
     def __init__(self, position):
@@ -143,6 +140,10 @@ class LivingBeing:
     @position.setter
     def position(self, new_position):
         self._position = new_position
+
+    @position.deleter
+    def position(self):
+        del self._position
 
     def can_reproduce(self, forest_instance: Forest):
         pass
@@ -193,33 +194,55 @@ class Wolf(LivingBeing):
         self._current_hunger = Wolf.max_hunger
         self._current_health = Wolf.max_health
 
+# DEBUG SECTION
 test_forest = Forest(6)
 test_forest.reset_forest()
+beings = []
 grass_obj1 = Grass(test_forest.find_path())
+grass_obj1.position = [(4, 0)]
+beings.append(grass_obj1)
 rabbit_obj1 = Rabbit(test_forest.find_path())
 rabbit_obj2 = Rabbit(test_forest.find_path())
-print(Rabbit.instance_count)
-print(Grass.instance_count)
-wolf_obj1 = Wolf(test_forest.find_path())
-print(Wolf.instance_count)
-#print(rabbit_obj1.position)
-test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
-path_to_grass = test_forest.find_path(rabbit_obj1.position, Grass)
-print(path_to_grass)
-current_pos = path_to_grass.pop(0)
+rabbit_obj2.position = [(0, 1)]
+rabbit_obj1.position = [(0, 2)]
+beings.append(rabbit_obj1)
+beings.append(rabbit_obj2)
+#wolf_obj1 = Wolf(test_forest.find_path())
+#beings.append(wolf_obj1)
+test_forest.update_forest(beings)
+path_to_grass1 = test_forest.find_path(rabbit_obj1.position, Grass)
+path_to_grass2 = test_forest.find_path(rabbit_obj2.position, Grass)
+# current_pos1 = path_to_grass1.pop(0)
+# current_pos2 = path_to_grass2.pop(0)
+print(rabbit_obj1.position, rabbit_obj2.position)
+print('Path1: ', path_to_grass1)
+print('Path2: ', path_to_grass2)
 
-while path_to_grass:
-    rabbit_obj1.position = [path_to_grass.pop(0)]
-    test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
+while path_to_grass1 and path_to_grass2:
+    rabbit_obj1.position = [path_to_grass1.pop(0)]
+    rabbit_obj2.position = [path_to_grass2.pop(0)]
+    print('Path1: ', path_to_grass1)
+    print('Path2: ', path_to_grass2)
+    test_forest.update_forest(beings)
     test_forest.draw_matrix()
+    test_forest.draw_debug_matrix()
     print('\n')
-    time.sleep(2.5)
+    time.sleep(0.5)
 
-rabbit_obj1.position = [(0, 0)]
-test_forest.update_forest([grass_obj1, rabbit_obj1, wolf_obj1])
+beings = filter(lambda x: x != grass_obj1, beings)
+del grass_obj1.position
+Grass.instance_count -= 1
+#rabbit_obj1.position = [(0, 0)]
+test_forest.update_forest(beings)
 test_forest.draw_matrix()
-print(grass_obj1.position)
+test_forest.draw_debug_matrix()
+print(Grass.instance_count)
+
+
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
 # returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]
 # It looks like the algorithm prefers diagonal paths
+
+# Bug: two entities searching for food at the same time can receive the same path; while moving, one instance
+# overwrites the other in the forest matrix

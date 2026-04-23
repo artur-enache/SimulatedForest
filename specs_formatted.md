@@ -239,3 +239,39 @@ Instantiate: the position is provided from the main game loop
 Seek food: if hunger < threshold, then: rabbit seeks nearest grass; wolf seeks nearest rabbit; it asks for the position of nearest target from the forest object; grass doesn't seek anything here Reproduction: verify if internal hunger is higher than the threshold, and if count > # parents (ignore baby state for the beginning; all populations are adults by default);
 
 Starvation: if hunger = 0, reduce health by damage; if hunger > 0, reduce hunger by attrition; if hunger = 0 and health = 0 die (remove all references of this instance from where they are set)
+
+### Problems left to solve
+
+#### Removing elements at the target position
+When a R or W instance reach their target, I need a way for them to "deinstance" their target. So for example when R1 reaches G1, it means it "ate" it. The following need to happen:
+- reset R1 hunger
+- ideally, increment R1 health, towards their maximum
+- remove G1 from forest matrix
+- prevent G1 from being added to the matrix again (by deleting its position)
+- decrement G counter by 1
+
+#### Overlaping paths
+When two R look for G at the same time, their paths can overlap. Example:
+G = 4, 4
+R1 = 1, 0
+R2 = 0, 1
+
+Path R1:  [(2, 2), (3, 3), (4, 4)]
+Path R2:  [(2, 3), (3, 4), (4, 4)]
+
+Both will take the same number of ticks to reach their target. Once they reach it, only one R will be left in the matrix.
+
+To solve, I need the following in the game loop:
+- get all "hungry" objects (per type: R, W)
+- for each R or W, get its path to food; save all paths, per obj type (R paths, W paths)
+- for each R/W path, zip over multiple paths
+- if one node from one path overlaps any other, get a new free node from the forest_matrix (find_path with starting position, but no target)
+- replace this node with the free node
+
+For example, these are the R paths:
+[(2, 1), (2, 2), (3, 3), (4, 4)]
+[(1, 1), (2, 2), (3, 3), (3, 4), (4, 4)]
+
+Zip over them (itertools.zip_longest); the second element in each are the same, so when this happens:
+new_cell = test_forest.find_path((2, 2))
+list[index] = new_cell
