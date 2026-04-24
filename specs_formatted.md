@@ -252,12 +252,14 @@ When a R or W instance reach their target, I need a way for them to "deinstance"
 
 #### Overlaping paths
 When two R look for G at the same time, their paths can overlap. Example:
+```
 G = 4, 4
 R1 = 1, 0
 R2 = 0, 1
 
 Path R1:  [(2, 2), (3, 3), (4, 4)]
 Path R2:  [(2, 3), (3, 4), (4, 4)]
+```
 
 Both will take the same number of ticks to reach their target. Once they reach it, only one R will be left in the matrix.
 
@@ -272,6 +274,32 @@ For example, these are the R paths:
 [(2, 1), (2, 2), (3, 3), (4, 4)]
 [(1, 1), (2, 2), (3, 3), (3, 4), (4, 4)]
 
-Zip over them (itertools.zip_longest); the second element in each are the same, so when this happens:
+Zip over them (itertools.zip_longest); in this example, the second elements in each list are equal. When this happens:
 new_cell = test_forest.find_path((2, 2))
 list[index] = new_cell
+
+
+#### How do G / R / W eat, reproduce & despawn?
+In the game loop, there are ticks passing every n seconds
+Each tick, loop over all the G, R & W instances
+If G:
+  Decrement health
+  If health > 0:
+    If tick % 10 == 0 & enough G instances are available:
+      Spawn another G and add it to the list
+    Else:
+      Pass
+  Else:
+    Remove the current G from the list (despawn)
+    Decrement class G counter by 1
+Else:
+  If hunger > threshold:
+    If tick % X & enough instances are available:
+      Spawn another R or W and add it to the list
+  Else:
+    If Wolf:
+      Remove first Rabbit from list
+      Set Wolf health, hunger to max
+    Else:
+      Remove first Grass from list
+      Set Rabbit health, hunger to max

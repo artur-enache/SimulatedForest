@@ -130,8 +130,13 @@ class Forest:
         print('\n'.join(str(item) for item in self.matrix))
 
 class LivingBeing:
-    def __init__(self, position):
+    def __init__(self, position = (0, 0)):
         self._position = position
+        self._current_health = None
+        self._current_hunger = None
+
+    def __str__(self):
+        return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: {self.current_hunger}'
 
     @property
     def position(self):
@@ -145,16 +150,40 @@ class LivingBeing:
     def position(self):
         del self._position
 
+    @property
+    def current_health(self):
+        return self._current_health
+
+    @current_health.setter
+    def current_health(self, new_health):
+        self._current_health = new_health
+
+    @property
+    def current_hunger(self):
+        return self._current_hunger
+
+    @current_hunger.setter
+    def current_hunger(self, new_hunger):
+        self._current_hunger = new_hunger
+
     def can_reproduce(self, forest_instance: Forest):
         pass
 
 class Grass(LivingBeing):
     instance_count = 0
     parents_required = 3
+    max_health = 50
+    health_attrition = 2
+    reproduction_period = 10
 
-    def __init__(self, position):
+    def __init__(self, position = (0, 0)):
         Grass.instance_count += 1
         super().__init__(position)
+        self._current_health = Grass.max_health
+
+    # Override parent method, Grass does not have hunger
+    def __str__(self):
+        return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: N/A'
 
 class Rabbit(LivingBeing):
     instance_count = 0
@@ -164,20 +193,13 @@ class Rabbit(LivingBeing):
     hunger_attrition = 5
     max_health = 100
     health_attrition = 10
+    reproduction_period = 5
 
-    def __init__(self, position):
+    def __init__(self, position = (0, 0)):
         Rabbit.instance_count += 1
         super().__init__(position)
         self._current_hunger = Rabbit.max_hunger
         self._current_health = Rabbit.max_health
-
-    @property
-    def current_hunger(self):
-        return self._current_hunger
-
-    @property
-    def current_health(self):
-        return self._current_health
 
 class Wolf(LivingBeing):
     instance_count = 0
@@ -187,58 +209,72 @@ class Wolf(LivingBeing):
     hunger_attrition = 5
     max_health = 100
     health_attrition = 5
+    reproduction_period = 25
 
-    def __init__(self, position):
+    def __init__(self, position = (0, 0)):
         Wolf.instance_count += 1
         super().__init__(position)
         self._current_hunger = Wolf.max_hunger
         self._current_health = Wolf.max_health
 
-# DEBUG SECTION
-test_forest = Forest(6)
-test_forest.reset_forest()
+# DEBUG SECTION - Game loop
+ticks = 0
 beings = []
-grass_obj1 = Grass(test_forest.find_path())
-grass_obj1.position = [(4, 0)]
-beings.append(grass_obj1)
-rabbit_obj1 = Rabbit(test_forest.find_path())
-rabbit_obj2 = Rabbit(test_forest.find_path())
-rabbit_obj2.position = [(0, 1)]
-rabbit_obj1.position = [(0, 2)]
-beings.append(rabbit_obj1)
-beings.append(rabbit_obj2)
-#wolf_obj1 = Wolf(test_forest.find_path())
-#beings.append(wolf_obj1)
-test_forest.update_forest(beings)
-path_to_grass1 = test_forest.find_path(rabbit_obj1.position, Grass)
-path_to_grass2 = test_forest.find_path(rabbit_obj2.position, Grass)
-# current_pos1 = path_to_grass1.pop(0)
-# current_pos2 = path_to_grass2.pop(0)
-print(rabbit_obj1.position, rabbit_obj2.position)
-print('Path1: ', path_to_grass1)
-print('Path2: ', path_to_grass2)
 
-while path_to_grass1 and path_to_grass2:
-    rabbit_obj1.position = [path_to_grass1.pop(0)]
-    rabbit_obj2.position = [path_to_grass2.pop(0)]
-    print('Path1: ', path_to_grass1)
-    print('Path2: ', path_to_grass2)
-    test_forest.update_forest(beings)
-    test_forest.draw_matrix()
-    test_forest.draw_debug_matrix()
-    print('\n')
-    time.sleep(0.5)
+start_rabbits = 4
+start_grass = 6
+start_wolf = 2
 
-beings = filter(lambda x: x != grass_obj1, beings)
-del grass_obj1.position
-Grass.instance_count -= 1
-#rabbit_obj1.position = [(0, 0)]
-test_forest.update_forest(beings)
-test_forest.draw_matrix()
-test_forest.draw_debug_matrix()
-print(Grass.instance_count)
+beings.extend([Rabbit() for _ in range(start_rabbits)])
+beings.extend([Grass() for _ in range(start_grass)])
+beings.extend([Wolf() for _ in range(start_wolf)])
 
+while beings:
+    ticks += 1
+    for index, being in enumerate(beings):
+        if isinstance(being, Grass):
+            being.current_health -= being.health_attrition
+            if being.current_health <= 0:
+                beings.pop(index)
+            elif ticks % being.reproduction_period == 0 and being.parents_required >= being.instance_count:
+                print(f'Grass reproduced!')
+                beings.append(Grass())
+        else:
+            being.current_hunger -= being.hunger_attrition
+            if being.current_hunger < being.hunger_threshold:
+                being.current_health -= being.health_attrition
+                if being.current_health <= 0:
+                    print(f'{being.__class__.__name__} died!')
+                    beings.pop(index)
+                elif isinstance(being, Rabbit):
+                    try:
+                        to_kill = next(x for x in beings if isinstance(x, Grass))
+                    except:
+                        to_kill = None
+                else:
+                    try:
+                        to_kill = next(x for x in beings if isinstance(x, Rabbit))
+                    except:
+                        to_kill = None
 
+                if to_kill:
+                    # TO CONTINUE: the decrement here does not work
+                    to_kill.instance_count -= 1
+                    beings.pop(beings.index(to_kill))
+                    being.current_health = being.max_health
+                    being.current_hunger = being.max_hunger
+
+            elif ticks % being.reproduction_period == 0 and being.parents_required >= being.instance_count:
+                if isinstance(being, Rabbit):
+                    print(f'Rabbit reproduced!')
+                    beings.append(Rabbit())
+                else:
+                    print(f'Wolf reproduced!')
+                    beings.append(Wolf())
+    print(f'Grass: {Grass.instance_count} | Rabbits: {Rabbit.instance_count} | Wolves: {Wolf.instance_count}')
+    time.sleep(1)
+
+print(f'You forest survived for {ticks} iterations!')
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
 # returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]
