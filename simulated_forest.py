@@ -288,8 +288,13 @@ while beings:
     new_beings = []
     # Solve the hunger loop
     for index, entity in enumerate(beings):
+        inst_count = type(entity).instance_count
+        par_req = type(entity).parents_required
+        repr_per = type(entity).reproduction_period
+        total_beings = len(beings) + len(new_beings)
+
         entity.hungry_or_starving()
-        if not entity.is_hungry() and entity.can_reproduce(entity.instance_count, entity.parents_required, ticks, entity.reproduction_period) and (len(beings) + len(new_beings)) < max_beings:
+        if not entity.is_hungry() and entity.can_reproduce(inst_count, par_req, ticks, repr_per) and total_beings < max_beings:
             if isinstance(entity, Grass):
                 new_beings.append(Grass())
             elif isinstance(entity, Rabbit):
