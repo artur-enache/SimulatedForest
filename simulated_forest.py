@@ -220,7 +220,7 @@ class Grass(LivingBeing):
 
     # Override parent method, Grass does not have hunger
     def hungry_or_starving(self):
-        pass
+        self.current_health -= self.health_attrition
 
     # Override parent method, Grass does not have hunger
     def is_hungry(self):
@@ -270,6 +270,8 @@ def go_eat(consumer, target, path_to_target):
 
 # DEBUG SECTION - Game loop
 ticks = 0
+max_beings = 20
+
 beings = []
 
 start_rabbits = 4
@@ -287,7 +289,7 @@ while beings:
     # Solve the hunger loop
     for index, entity in enumerate(beings):
         entity.hungry_or_starving()
-        if not entity.is_hungry() and entity.can_reproduce(entity.instance_count, entity.parents_required, ticks, entity.reproduction_period):
+        if not entity.is_hungry() and entity.can_reproduce(entity.instance_count, entity.parents_required, ticks, entity.reproduction_period) and (len(beings) + len(new_beings)) < max_beings:
             if isinstance(entity, Grass):
                 new_beings.append(Grass())
             elif isinstance(entity, Rabbit):
@@ -297,10 +299,13 @@ while beings:
             print(f"{type(entity)} reproduced!")
 
         if entity.current_health <= 0:
+            type(entity).instance_count -= 1
             beings.pop(index)
             print(f"{type(entity)} died!")
     beings.extend(new_beings)
-    time.sleep(1.5)
+    time.sleep(0.5)
+
+print(f'Your forest survived for {ticks} iterations!')
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
 # returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]

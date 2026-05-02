@@ -328,3 +328,4 @@ for entity in beings
         current_hunger = max_hunger
         current_health = max_health
 ```
+Before continuing to take notes, I solved all 5 points above. However, I spotted an unintended consequence: rabbits can meet the conditions for reproduction faster than they can starve, which means their population explodes quickly. Pretty realistic, but IRL they don't grow infinitely - they have some upper bound, determined by availability of food, land and predators.
