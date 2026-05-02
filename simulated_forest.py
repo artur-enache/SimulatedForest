@@ -132,11 +132,13 @@ class Forest:
 class LivingBeing:
     def __init__(self, position = (0, 0)):
         self._position = position
+        self._path = []
+        self._target = None
         self._current_health = None
         self._current_hunger = None
 
-    def __str__(self):
-        return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: {self.current_hunger}'
+    # def __str__(self):
+    #     return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: {self.current_hunger}'
 
     @property
     def position(self):
@@ -166,8 +168,39 @@ class LivingBeing:
     def current_hunger(self, new_hunger):
         self._current_hunger = new_hunger
 
-    def can_reproduce(self, forest_instance: Forest):
-        pass
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, new_path):
+        self._path = new_path
+
+    @property
+    def target(self):
+        return self._target
+
+    @target.setter
+    def target(self):
+        self._target = new_target
+
+    def hungry_or_starving(self):
+        if self.current_hunger <= 0:
+            self.current_health -= self.health_attrition
+        else:
+            self.current_hunger -= self.hunger_attrition
+
+    def can_reproduce(self, count, parents, ticker, period):
+        if count >= parents and ticker % period == 0:
+            return True
+        else:
+            return False
+
+    def is_hungry(self):
+        if self.current_hunger < self.hunger_threshold:
+            return True
+        else:
+            return False
 
 class Grass(LivingBeing):
     instance_count = 0
@@ -182,8 +215,16 @@ class Grass(LivingBeing):
         self._current_health = Grass.max_health
 
     # Override parent method, Grass does not have hunger
-    def __str__(self):
-        return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: N/A'
+    # def __str__(self):
+    #     return f'{self.__class__.__name__}. Total: {self.instance_count}; Current health: {self.current_health}; Current hunger: N/A'
+
+    # Override parent method, Grass does not have hunger
+    def hungry_or_starving(self):
+        pass
+
+    # Override parent method, Grass does not have hunger
+    def is_hungry(self):
+        return False
 
 class Rabbit(LivingBeing):
     instance_count = 0
@@ -217,64 +258,49 @@ class Wolf(LivingBeing):
         self._current_hunger = Wolf.max_hunger
         self._current_health = Wolf.max_health
 
+
+def go_eat(consumer, target, path_to_target):
+    new_i, new_j = path_to_target.pop(0)
+    consumer.position = (new_i, new_j)
+
+    if consumer.position == target.position:
+        consumer.current_health = consumer.max_health
+        consumer.current_hunger = consumer.max_hunger
+        target.current_health = 0
+
 # DEBUG SECTION - Game loop
 ticks = 0
 beings = []
 
 start_rabbits = 4
 start_grass = 6
-start_wolf = 2
+#start_wolf = 2
 
 beings.extend([Rabbit() for _ in range(start_rabbits)])
 beings.extend([Grass() for _ in range(start_grass)])
-beings.extend([Wolf() for _ in range(start_wolf)])
+#beings.extend([Wolf() for _ in range(start_wolf)])
 
 while beings:
     ticks += 1
-    for index, being in enumerate(beings):
-        if isinstance(being, Grass):
-            being.current_health -= being.health_attrition
-            if being.current_health <= 0:
-                beings.pop(index)
-            elif ticks % being.reproduction_period == 0 and being.parents_required >= being.instance_count:
-                print(f'Grass reproduced!')
-                beings.append(Grass())
-        else:
-            being.current_hunger -= being.hunger_attrition
-            if being.current_hunger < being.hunger_threshold:
-                being.current_health -= being.health_attrition
-                if being.current_health <= 0:
-                    print(f'{being.__class__.__name__} died!')
-                    beings.pop(index)
-                elif isinstance(being, Rabbit):
-                    try:
-                        to_kill = next(x for x in beings if isinstance(x, Grass))
-                    except:
-                        to_kill = None
-                else:
-                    try:
-                        to_kill = next(x for x in beings if isinstance(x, Rabbit))
-                    except:
-                        to_kill = None
+    print(f'Current iteration: {ticks}\nNo. Grass: {Grass.instance_count}\nNo. Rabbit: {Rabbit.instance_count}\nNo. Wolves: {Wolf.instance_count}')
+    new_beings = []
+    # Solve the hunger loop
+    for index, entity in enumerate(beings):
+        entity.hungry_or_starving()
+        if not entity.is_hungry() and entity.can_reproduce(entity.instance_count, entity.parents_required, ticks, entity.reproduction_period):
+            if isinstance(entity, Grass):
+                new_beings.append(Grass())
+            elif isinstance(entity, Rabbit):
+                new_beings.append(Rabbit())
+            else:
+                new_beings.append(Wolf())
+            print(f"{type(entity)} reproduced!")
 
-                if to_kill:
-                    # TO CONTINUE: the decrement here does not work
-                    to_kill.instance_count -= 1
-                    beings.pop(beings.index(to_kill))
-                    being.current_health = being.max_health
-                    being.current_hunger = being.max_hunger
-
-            elif ticks % being.reproduction_period == 0 and being.parents_required >= being.instance_count:
-                if isinstance(being, Rabbit):
-                    print(f'Rabbit reproduced!')
-                    beings.append(Rabbit())
-                else:
-                    print(f'Wolf reproduced!')
-                    beings.append(Wolf())
-    print(f'Grass: {Grass.instance_count} | Rabbits: {Rabbit.instance_count} | Wolves: {Wolf.instance_count}')
-    time.sleep(1)
-
-print(f'You forest survived for {ticks} iterations!')
+        if entity.current_health <= 0:
+            beings.pop(index)
+            print(f"{type(entity)} died!")
+    beings.extend(new_beings)
+    time.sleep(1.5)
 
 # Bug: when only one element is in the matrix at (3, 1), find_path (0,0)
 # returns [(0, 0), (1, 1), (2, 2), (3, 1)] instead of [(0, 0), (1, 1), (2, 1), (3, 1)]

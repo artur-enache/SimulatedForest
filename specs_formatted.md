@@ -303,3 +303,28 @@ Else:
     Else:
       Remove first Grass from list
       Set Rabbit health, hunger to max
+
+The above turned out to be more difficult than needed. I should start with a simpler scenario: R and G
+
+1. How do they seek food?
+2. How do they eat?
+3. How do they reproduce?
+4. How do they starve?
+5. How do they despawn?
+
+1. Grass: does not seek food; Rabbit: current_hunger falls every tick by hunger_attrition, once it is below hunger_threshold, they call Forest.find_path and get a path (+ target?). They start moving towards the target.
+```
+every tick, current_hunger -= hunger_attrition
+for entity in beings
+  if entity = grass
+    pass
+  elif current_hunger <= hunger_threshold
+    if not (path and target)
+      ask for path & target
+      store the path & target in instance attributes
+    else
+      update position to path.pop(0)
+      if position = target position
+        current_hunger = max_hunger
+        current_health = max_health
+```
