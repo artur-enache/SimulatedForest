@@ -8,8 +8,6 @@ class Forest:
         if dimensions <= 0 or dimensions > 20:
             raise ValueError('Forest dimension must be between 1 and 20.')
 
-        # TODO: move the icons & ticker to a more appropriate place
-        self._tick = 0
         self._dimensions = dimensions
         self._reserved = 'R'
 
@@ -20,14 +18,6 @@ class Forest:
     @property
     def dimensions(self) -> int:
         return self._dimensions
-
-    @property
-    def tick(self) -> int:
-        return self._tick
-
-    @tick.setter
-    def tick(self, new_tick: int) -> None:
-        self._tick = new_tick
 
     def update_position(self, element: object, position: list[tuple[[int]]]) -> None:
         i, j = position[0]
@@ -63,11 +53,13 @@ class Forest:
 
                 if target_type:
                     if isinstance(self.matrix[new_i][new_j], target_type):
-                        return path + [(new_i, new_j)]
+                        return [path + [(new_i, new_j)], self.matrix[new_i][new_j]]
                     elif not self.matrix[new_i][new_j]:
                         if (new_i, new_j) not in visited:
                             visited.append((new_i, new_j))
                             queue.append((new_i, new_j, path + [(new_i, new_j)]))
+                            self.matrix[new_i][new_j] = self._reserved
+
                 # Allows the method to find nearest empty cell, used for spawning instances
                 else:
                     if not self.matrix[new_i][new_j]:
@@ -79,7 +71,8 @@ class Forest:
 
     def update_forest(self, instances: list[object]) -> None:
         if not instances:
-            raise ValueError('Cannot update an empty forest.')
+            print('The forest is empty!')
+            return None
 
         queue = []
         for entity in instances:
@@ -100,16 +93,14 @@ class Forest:
 
     def draw_matrix(self):
         self._empty = '  '
-        self._grass = '🌱'
-        self._rabbit = '🐇'
-        self._wolf = '🐺'
-        self._test = '🪰'
+        self._grass = '🌱🍀🌿🌾'
+        self._rabbit = '🐇🐰🐏🐑'
+        self._wolf = '🐺🦁🐯🦊'
 
         instance_icons = {
-            'Empty': '  ',
-            'Grass': '🌿',
-            'Rabbit': '🐰',
-            'Wolf': '🐯'
+            'Grass': '🌱',
+            'Rabbit': '🐇',
+            'Wolf': '🐺'
         }
 
         output_matrix = []
@@ -122,9 +113,10 @@ class Forest:
                     output_matrix[i][j] = self._empty
                 else:
                     match_icon = type(self.matrix[i][j]).__name__
-                    output_matrix[i][j] = instance_icons[match_icon]
+                    output_matrix[i][j] = instance_icons[match_icon][random.randint(0, len(instance_icons[match_icon]) -1)]
 
-        print('\n'.join(str(item) for item in output_matrix))
+        return '\n'.join(str(item) for item in output_matrix)
+        #print('\n'.join(str(item) for item in output_matrix))
 
     def draw_debug_matrix(self):
         print('\n'.join(str(item) for item in self.matrix))
@@ -205,8 +197,8 @@ class LivingBeing:
 class Grass(LivingBeing):
     instance_count = 0
     parents_required = 3
-    max_health = 50
-    health_attrition = 2
+    max_health = 100
+    health_attrition = 5
     reproduction_period = 10
 
     def __init__(self, position = (0, 0)):
@@ -228,13 +220,13 @@ class Grass(LivingBeing):
 
 class Rabbit(LivingBeing):
     instance_count = 0
-    parents_required = 3
+    parents_required = 2
     max_hunger = 100
-    hunger_threshold = 50
+    hunger_threshold = 70
     hunger_attrition = 5
     max_health = 100
     health_attrition = 10
-    reproduction_period = 5
+    reproduction_period = 8
 
     def __init__(self, position = (0, 0)):
         Rabbit.instance_count += 1
@@ -259,9 +251,11 @@ class Wolf(LivingBeing):
         self._current_health = Wolf.max_health
 
 
-def go_eat(consumer, target, path_to_target):
-    new_i, new_j = path_to_target.pop(0)
-    consumer.position = (new_i, new_j)
+def go_eat(consumer, path_and_target):
+    current_i, current_j = path_and_target[0].pop(0)
+    new_i, new_j = path_and_target[0].pop(0)
+    target = path_and_target[1]
+    consumer.position = [(new_i, new_j)]
 
     if consumer.position == target.position:
         consumer.current_health = consumer.max_health
@@ -270,21 +264,29 @@ def go_eat(consumer, target, path_to_target):
 
 # DEBUG SECTION - Game loop
 ticks = 0
-max_beings = 20
+dimensions = 6
+max_beings = dimensions ** 2
 
 beings = []
 
-start_rabbits = 4
-start_grass = 6
-#start_wolf = 2
+forest = Forest(dimensions)
+forest.reset_forest()
 
-beings.extend([Rabbit() for _ in range(start_rabbits)])
-beings.extend([Grass() for _ in range(start_grass)])
-#beings.extend([Wolf() for _ in range(start_wolf)])
+start_rabbits = 2
+start_grass = 5
+start_wolf = 2
+
+beings.extend([Rabbit(forest.find_path()) for _ in range(start_rabbits)])
+beings.extend([Grass(forest.find_path()) for _ in range(start_grass)])
+beings.extend([Wolf(forest.find_path()) for _ in range(start_wolf)])
+
+forest.update_forest(beings)
 
 while beings:
+    LINE_CLEAR = '\x1b[2K'
+    print(end=LINE_CLEAR)
     ticks += 1
-    print(f'Current iteration: {ticks}\nNo. Grass: {Grass.instance_count}\nNo. Rabbit: {Rabbit.instance_count}\nNo. Wolves: {Wolf.instance_count}')
+    #print(f'Current iteration: {ticks}\nNo. Grass: {Grass.instance_count}\nNo. Rabbit: {Rabbit.instance_count}\nNo. Wolves: {Wolf.instance_count}')
     new_beings = []
     # Solve the hunger loop
     for index, entity in enumerate(beings):
@@ -293,22 +295,44 @@ while beings:
         repr_per = type(entity).reproduction_period
         total_beings = len(beings) + len(new_beings)
 
+        # Solve for hunger
         entity.hungry_or_starving()
-        if not entity.is_hungry() and entity.can_reproduce(inst_count, par_req, ticks, repr_per) and total_beings < max_beings:
-            if isinstance(entity, Grass):
-                new_beings.append(Grass())
-            elif isinstance(entity, Rabbit):
-                new_beings.append(Rabbit())
-            else:
-                new_beings.append(Wolf())
-            print(f"{type(entity)} reproduced!")
+        path = -1
+        if isinstance(entity, Rabbit) and entity.is_hungry():
+            path = forest.find_path(entity.position, Grass)
+        elif isinstance(entity, Wolf) and entity.is_hungry():
+            path = forest.find_path(entity.position, Rabbit)
 
+        # Solve for eating
+        if path == -1:
+            pass
+        else:
+            go_eat(entity, path)
+        # Solve for reproduction
+        if not entity.is_hungry() and entity.can_reproduce(inst_count, par_req, ticks, repr_per) and total_beings < max_beings:
+            new_position = forest.find_path()
+            if new_position != -1:
+                if isinstance(entity, Grass):
+                    new_beings.append(Grass(new_position))
+                elif isinstance(entity, Rabbit):
+                    new_beings.append(Rabbit(new_position))
+                else:
+                    new_beings.append(Wolf(new_position))
+            else:
+                pass
+            #print(f"{type(entity).__name__} reproduced!")
+        # Solve for starvation
         if entity.current_health <= 0:
             type(entity).instance_count -= 1
             beings.pop(index)
-            print(f"{type(entity)} died!")
+            #print(f"{type(entity).__name__} died!")
+
     beings.extend(new_beings)
-    time.sleep(0.5)
+    forest.update_forest(beings)
+    to_draw = forest.draw_matrix()
+    print(
+        f'Current iteration: {ticks}\nNo. Grass: {Grass.instance_count}\nNo. Rabbit: {Rabbit.instance_count}\nNo. Wolves: {Wolf.instance_count}\n{to_draw}', end='\r')
+    time.sleep(1.0)
 
 print(f'Your forest survived for {ticks} iterations!')
 
